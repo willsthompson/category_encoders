@@ -10,33 +10,59 @@ Environment variables:
 """
 
 import argparse
+import csv
 import sys
 from pathlib import Path
+from typing import Iterator
 
 import dlt
-import pandas as pd
+from openpyxl import load_workbook
 
 
-def read_file(file_path: str) -> pd.DataFrame:
-    """Read a CSV or Excel file into a DataFrame."""
+def _normalize_column(name: str) -> str:
+    return name.strip().lower().replace(" ", "_")
+
+
+def read_csv(file_path: Path) -> Iterator[dict]:
+    """Yield rows from a CSV file as dicts with normalized column names."""
+    with open(file_path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            yield {_normalize_column(k): v for k, v in row.items()}
+
+
+def read_excel(file_path: Path) -> Iterator[dict]:
+    """Yield rows from an Excel file as dicts with normalized column names."""
+    wb = load_workbook(file_path, read_only=True)
+    ws = wb.active
+    rows = ws.iter_rows(values_only=True)
+    headers = [_normalize_column(str(cell)) for cell in next(rows)]
+    for row in rows:
+        yield dict(zip(headers, row))
+    wb.close()
+
+
+READERS = {
+    ".csv": read_csv,
+    ".xlsx": read_excel,
+    ".xls": read_excel,
+}
+
+
+@dlt.resource(
+    write_disposition="replace",
+    schema_contract="evolve",
+)
+def file_data(file_path: str, table_name: str) -> Iterator[dict]:
+    """A dlt resource that yields rows from a CSV/Excel file."""
     path = Path(file_path)
     suffix = path.suffix.lower()
-
-    if suffix == ".csv":
-        return pd.read_csv(path)
-    elif suffix in (".xls", ".xlsx"):
-        return pd.read_excel(path)
-    else:
-        raise ValueError(f"Unsupported file type: {suffix}. Use .csv, .xls, or .xlsx")
-
-
-@dlt.resource(write_disposition="replace")
-def file_data(file_path: str, table_name: str):
-    """A dlt resource that yields rows from a CSV/Excel file."""
-    df = read_file(file_path)
-    # Normalize column names: lowercase, replace spaces with underscores
-    df.columns = [col.strip().lower().replace(" ", "_") for col in df.columns]
-    yield from df.to_dict(orient="records")
+    reader = READERS.get(suffix)
+    if reader is None:
+        raise ValueError(
+            f"Unsupported file type: {suffix}. Supported: {', '.join(READERS)}"
+        )
+    yield from reader(path)
 
 
 def run_pipeline(file_path: str, table_name: str) -> None:
