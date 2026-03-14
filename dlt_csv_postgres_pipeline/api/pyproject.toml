@@ -1,0 +1,13 @@
+[project]
+name = "dlt-csv-postgres-api"
+version = "0.1.0"
+description = "FastAPI service for CSV/Excel ingestion into PostgreSQL via dlt"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "dlt[postgres]>=0.4.0",
+    "openpyxl>=3.0.0",
+    "pyarrow>=14.0.0",
+    "pydantic-settings>=2.0.0",
+]

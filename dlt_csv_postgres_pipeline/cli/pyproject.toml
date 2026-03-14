@@ -1,0 +1,12 @@
+[project]
+name = "dlt-pipeline-cli"
+version = "0.1.0"
+description = "CLI for the dlt CSV/Excel ingestion API"
+requires-python = ">=3.11"
+dependencies = [
+    "typer>=0.12.0",
+    "httpx>=0.27.0",
+]
+
+[project.scripts]
+dlt-cli = "cli:app"
