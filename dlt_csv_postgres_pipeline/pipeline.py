@@ -1,6 +1,8 @@
 """
 dlt pipeline that ingests CSV or Excel files and loads them into PostgreSQL.
 
+Yields Arrow tables so dlt can use PostgreSQL COPY for bulk loading.
+
 Usage:
     uv run python pipeline.py <file_path> [--table <table_name>]
 
@@ -16,29 +18,56 @@ from pathlib import Path
 from typing import Iterator
 
 import dlt
+import pyarrow as pa
 from openpyxl import load_workbook
+
+# Number of rows per Arrow batch — controls memory usage vs. throughput.
+BATCH_SIZE = 10_000
 
 
 def _normalize_column(name: str) -> str:
     return name.strip().lower().replace(" ", "_")
 
 
-def read_csv(file_path: Path) -> Iterator[dict]:
-    """Yield rows from a CSV file as dicts with normalized column names."""
+def _rows_to_arrow(headers: list[str], rows: list[list]) -> pa.Table:
+    """Convert a list of row-lists into an Arrow table with the given headers."""
+    columns = list(zip(*rows)) if rows else [[] for _ in headers]
+    arrays = [pa.array(col) for col in columns]
+    return pa.table(dict(zip(headers, arrays)))
+
+
+def read_csv(file_path: Path) -> Iterator[pa.Table]:
+    """Yield Arrow table batches from a CSV file."""
     with open(file_path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
+        reader = csv.reader(f)
+        raw_headers = next(reader)
+        headers = [_normalize_column(h) for h in raw_headers]
+
+        batch: list[list] = []
         for row in reader:
-            yield {_normalize_column(k): v for k, v in row.items()}
+            batch.append(row)
+            if len(batch) >= BATCH_SIZE:
+                yield _rows_to_arrow(headers, batch)
+                batch = []
+        if batch:
+            yield _rows_to_arrow(headers, batch)
 
 
-def read_excel(file_path: Path) -> Iterator[dict]:
-    """Yield rows from an Excel file as dicts with normalized column names."""
+def read_excel(file_path: Path) -> Iterator[pa.Table]:
+    """Yield Arrow table batches from an Excel file."""
     wb = load_workbook(file_path, read_only=True)
     ws = wb.active
     rows = ws.iter_rows(values_only=True)
     headers = [_normalize_column(str(cell)) for cell in next(rows)]
+
+    batch: list[list] = []
     for row in rows:
-        yield dict(zip(headers, row))
+        batch.append(list(row))
+        if len(batch) >= BATCH_SIZE:
+            yield _rows_to_arrow(headers, batch)
+            batch = []
+    if batch:
+        yield _rows_to_arrow(headers, batch)
     wb.close()
 
 
@@ -53,8 +82,8 @@ READERS = {
     write_disposition="replace",
     schema_contract="evolve",
 )
-def file_data(file_path: str, table_name: str) -> Iterator[dict]:
-    """A dlt resource that yields rows from a CSV/Excel file."""
+def file_data(file_path: str, table_name: str) -> Iterator[pa.Table]:
+    """A dlt resource that yields Arrow tables from a CSV/Excel file."""
     path = Path(file_path)
     suffix = path.suffix.lower()
     reader = READERS.get(suffix)
