@@ -2,7 +2,7 @@
 dlt pipeline that ingests CSV or Excel files and loads them into PostgreSQL.
 
 Usage:
-    python pipeline.py <file_path> [--table <table_name>]
+    uv run python pipeline.py <file_path> [--table <table_name>]
 
 Environment variables:
     DESTINATION__POSTGRES__CREDENTIALS - Postgres connection string, e.g.:

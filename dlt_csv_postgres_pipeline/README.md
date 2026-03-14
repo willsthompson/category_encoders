@@ -5,7 +5,7 @@ A simple [dlt](https://dlthub.com/) pipeline that loads CSV or Excel files into 
 ## Setup
 
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
 
 ## Configure PostgreSQL Connection
@@ -32,13 +32,13 @@ port = 5432
 Load a CSV file:
 
 ```bash
-python pipeline.py sample_data.csv
+uv run python pipeline.py sample_data.csv
 ```
 
 Load an Excel file with a custom table name:
 
 ```bash
-python pipeline.py data.xlsx --table employees
+uv run python pipeline.py data.xlsx --table employees
 ```
 
 The pipeline will:
