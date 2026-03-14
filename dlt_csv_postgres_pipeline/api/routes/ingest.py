@@ -1,10 +1,8 @@
-from pathlib import Path
-
 from fastapi import APIRouter, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from core.config import settings
-from core.pipeline import SUPPORTED_EXTENSIONS, run_pipeline
+from core.pipeline import derive_table_name, run_pipeline
 
 router = APIRouter()
 
@@ -15,24 +13,19 @@ class IngestResponse(BaseModel):
 
 
 @router.post("/ingest", response_model=IngestResponse)
-async def ingest(file: UploadFile, table_name: str | None = None):
+def ingest(file: UploadFile, table_name: str | None = None):
     """Upload a CSV or Excel file and load it into PostgreSQL."""
     filename = file.filename or "upload.csv"
-    suffix = Path(filename).suffix.lower()
+    resolved_table = table_name or derive_table_name(filename)
 
-    if suffix not in SUPPORTED_EXTENSIONS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file type: {suffix}. Supported: {', '.join(SUPPORTED_EXTENSIONS)}",
+    try:
+        detail = run_pipeline(
+            file=file.file,
+            filename=filename,
+            table_name=resolved_table,
+            database_url=settings.database_url,
         )
-
-    resolved_table = table_name or Path(filename).stem.lower().replace(" ", "_")
-
-    detail = run_pipeline(
-        file=file.file,
-        filename=filename,
-        table_name=resolved_table,
-        database_url=settings.database_url,
-    )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     return IngestResponse(table_name=resolved_table, detail=detail)

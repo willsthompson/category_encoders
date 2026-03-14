@@ -6,7 +6,7 @@ import pytest
 from openpyxl import Workbook
 from pytest_postgresql import factories
 
-from pipeline import file_data
+from core.pipeline import _file_resource
 
 postgresql_proc = factories.postgresql_proc()
 postgresql = factories.postgresql("postgresql_proc")
@@ -55,9 +55,11 @@ def test_file_loads_into_postgres(postgresql, tmp_path, write_file):
         destination="postgres",
         dataset_name="test_data",
     )
-    data = file_data(str(test_file), "employees")
-    data.table_name = "employees"
-    pipeline.run(data)
+
+    with open(test_file, "rb") as f:
+        data = _file_resource(f, test_file.name, "employees")
+        data.table_name = "employees"
+        pipeline.run(data)
 
     with postgresql.cursor() as cur:
         cur.execute("SELECT id, name, department FROM test_data.employees ORDER BY id")

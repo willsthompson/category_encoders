@@ -6,7 +6,7 @@ After API changes, regenerate the client with:
     python scripts/generate_client.py
 """
 
-import sys
+import os
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -19,8 +19,6 @@ DEFAULT_API_URL = "http://localhost:8000"
 
 
 def _api_url() -> str:
-    import os
-
     return os.environ.get("API_URL", DEFAULT_API_URL)
 
 
@@ -33,22 +31,22 @@ def ingest(
     ] = None,
 ):
     """Upload a file to the ingestion API."""
-    if not file.exists():
-        typer.echo(f"Error: file not found: {file}", err=True)
-        raise typer.Exit(1)
-
     url = f"{_api_url()}/ingest"
     params = {}
     if table_name:
         params["table_name"] = table_name
 
-    with open(file, "rb") as f:
-        response = httpx.post(
-            url,
-            files={"file": (file.name, f)},
-            params=params,
-            timeout=300,
-        )
+    try:
+        with open(file, "rb") as f:
+            response = httpx.post(
+                url,
+                files={"file": (file.name, f)},
+                params=params,
+                timeout=300,
+            )
+    except FileNotFoundError:
+        typer.echo(f"Error: file not found: {file}", err=True)
+        raise typer.Exit(1)
 
     if response.status_code != 200:
         typer.echo(f"Error ({response.status_code}): {response.text}", err=True)

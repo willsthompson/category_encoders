@@ -7,6 +7,7 @@ Any interface (HTTP, CLI, queue consumer) calls run_pipeline().
 
 import csv
 import io
+import os
 import tempfile
 from pathlib import Path
 from typing import BinaryIO, Iterator
@@ -85,12 +86,15 @@ def _file_resource(
         )
 
 
+def derive_table_name(filename: str) -> str:
+    """Derive a table name from a filename."""
+    return Path(filename).stem.lower().replace(" ", "_")
+
+
 def run_pipeline(
     file: BinaryIO, filename: str, table_name: str, database_url: str
 ) -> str:
     """Run the dlt pipeline and return a summary string."""
-    import os
-
     os.environ["DESTINATION__POSTGRES__CREDENTIALS"] = database_url
 
     pipeline = dlt.pipeline(

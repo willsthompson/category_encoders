@@ -1,0 +1,13 @@
+__pycache__
+*.pyc
+*.pyo
+.git
+.gitignore
+*.md
+uv.lock
+tests/
+scripts/
+cli/
+sample_data.csv
+api/Dockerfile
+.dockerignore
