@@ -1,8 +1,8 @@
 """
-dlt ingestion logic extracted from the original pipeline.
+dlt ingestion logic — the shared domain core.
 
-Accepts file-like objects (from FastAPI uploads) or file paths,
-reads CSV/Excel into Arrow batches, and loads via dlt into PostgreSQL.
+No framework imports (no FastAPI, no typer, no SQS SDK).
+Any interface (HTTP, CLI, queue consumer) calls run_pipeline().
 """
 
 import csv
@@ -71,7 +71,6 @@ def _file_resource(
         text = io.TextIOWrapper(file, encoding="utf-8")
         yield from _read_csv(text)
     elif suffix in (".xlsx", ".xls"):
-        # openpyxl needs a seekable file on disk
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
             tmp.write(file.read())
             tmp_path = Path(tmp.name)
@@ -81,7 +80,8 @@ def _file_resource(
             tmp_path.unlink()
     else:
         raise ValueError(
-            f"Unsupported file type: {suffix}. Supported: {', '.join(SUPPORTED_EXTENSIONS)}"
+            f"Unsupported file type: {suffix}. "
+            f"Supported: {', '.join(SUPPORTED_EXTENSIONS)}"
         )
 
 

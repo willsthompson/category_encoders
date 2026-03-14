@@ -7,15 +7,17 @@ FastAPI's TestClient for HTTP-level testing.
 
 import io
 import os
+import sys
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 from pytest_postgresql import factories
 
-# api/ must be on sys.path for the app import
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "api"))
+# Both api/ and the project root must be on sys.path so that
+# `from core.*` and `from routes.*` resolve correctly.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / "api"))
 
 from main import app  # noqa: E402
 
@@ -48,7 +50,6 @@ def test_ingest_csv(postgresql):
     db_url = f"postgresql://{info.user}:@{info.host}:{info.port}/{info.dbname}"
     os.environ["DATABASE_URL"] = db_url
 
-    # Reload settings to pick up the test DATABASE_URL
     from core.config import Settings
 
     import routes.ingest as ingest_mod

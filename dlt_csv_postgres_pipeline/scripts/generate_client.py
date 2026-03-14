@@ -15,10 +15,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Ensure the api/ package is importable
+# Project root and api/ must be on sys.path so that
+# `from core.*` and `from routes.*` resolve correctly.
 ROOT = Path(__file__).resolve().parent.parent
-API_DIR = ROOT / "api"
-sys.path.insert(0, str(API_DIR))
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "api"))
 
 from main import app  # noqa: E402
 
